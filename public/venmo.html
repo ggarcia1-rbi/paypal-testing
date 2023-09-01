@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Venmo Integration Testing</title>
+  <script src="https://js.braintreegateway.com/web/3.97.1/js/client.min.js"></script>
+  <script src="https://js.braintreegateway.com/web/3.97.1/js/venmo.min.js"></script>
+  <script src="https://js.braintreegateway.com/web/3.97.1/js/data-collector.min.js"></script>
+  <style>
+    .container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: auto;
+      height: 90vh;
+    }
+
+    #paypal-button {
+      width: 500px;
+      max-width: 100%;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <button id="venmo-button" style="width:500px;">Pay with Venmo</button>
+  </div>
+  <script type="text/javascript">
+    async function initializeBraintree() {
+
+      const response = await fetch('/client_token');
+      const authorization = await response.text();
+
+      var venmoButton = document.getElementById('venmo-button');
+
+      // Create a client.
+      braintree.client.create({
+        authorization
+      }).then(function (clientInstance) {
+        // Create a PayPal Checkout component.
+        return braintree.venmo.create({
+          client: clientInstance,
+          allowDesktop: true,
+          mobileWebFallBack: true,
+          allowDesktopWebLogin: true,
+          paymentMethodUsage: 'multi_use'
+        });
+      }).then(function (venmoInstance) {
+        // Verify browser support before proceeding.
+        if (!venmoInstance.isBrowserSupported()) {
+          console.log('Browser does not support Venmo');
+          return;
+        }
+
+        displayVenmoButton(venmoInstance);
+
+        // Check if tokenization results already exist. This occurs when your
+        // checkout page is relaunched in a new tab. This step can be omitted
+        // if allowNewBrowserTab is false.
+        if (venmoInstance.hasTokenizationResult()) {
+          venmoInstance.tokenize().then(handleVenmoSuccess).catch(handleVenmoError);
+        }
+
+      }).catch(function (err) {
+        // Handle component creation error
+      });
+
+      function displayVenmoButton(venmoInstance) {
+        console.log('displaying venmo button');
+        // Assumes that venmoButton is initially display: none.
+        venmoButton.style.display = 'block';
+
+        venmoButton.addEventListener('click', function () {
+          venmoButton.disabled = true;
+
+          venmoInstance.tokenize().then(function (payload) {
+            venmoButton.removeAttribute('disabled');
+            console.log({ payload });
+          });
+        });
+      }
+
+      function handleVenmoError(err) {
+        alert('Venmo error: ' + err.message);
+      }
+
+      function handleVenmoSuccess(payload) {
+        console.log(`Venmo success`, { payload });
+      }
+    }
+
+    initializeBraintree();
+  </script>
+</body>
+
+</html>

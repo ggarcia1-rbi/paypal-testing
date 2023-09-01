@@ -35,17 +35,13 @@ app.get('/client_token', (req, res) => {
       console.log(err);
       return res.sendStatus(500);
     }
-    res.send(response.clientToken);
+    return res.send(response.clientToken);
   });
 });
 
 // Settle transaction
 app.post('/sale', (req, res) => {
-  console.log(req.body);
   const { amount, nonce } = req.body;
-  console.log({
-    amount, nonce
-  });
   if (!(amount && nonce)) {
     return res.sendStatus(400);
   }

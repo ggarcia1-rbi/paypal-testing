@@ -3,6 +3,8 @@
 
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PayPal Integration Testing</title>
   <!-- Load the client component. -->
   <script src="https://js.braintreegateway.com/web/3.97.1/js/client.min.js"></script>
   <!-- Load the PayPal Checkout component. -->
@@ -29,130 +31,122 @@
   </div>
   <script type="text/javascript">
     async function initializeBraintree() {
-      try {
 
-        // https://developer.paypal.com/braintree/docs/guides/paypal/checkout-with-paypal/javascript/v3/#invoking-the-checkout-with-paypal-flow
+      const response = await fetch('/client_token');
+      const authorization = await response.text();
 
-        const response = await fetch('/client_token');
-        const clientAuthorization = await response.text();
+      // Create a client.
+      braintree.client.create({
+        authorization
+      }).then(function (clientInstance) {
+        // Create a PayPal Checkout component.
+        return braintree.paypalCheckout.create({
+          client: clientInstance
+        });
+      }).then(function (paypalCheckoutInstance) {
+        paypalCheckoutInstance.loadPayPalSDK({
+          currency: 'USD',
+          intent: 'capture'
+        }).then(function () {
+          // The PayPal script is now loaded on the page and
+          // window.paypal.Buttons is now available to use
+          paypal.Buttons({
+            // Controls which buttons are displayed
+            fundingSource: paypal.FUNDING.PAYPAL,
 
-        // Create a client.
-        braintree.client.create({
-          authorization: clientAuthorization,
+            createOrder: function () {
+              console.log('createOrder');
+              return paypalCheckoutInstance.createPayment({
+                flow: 'checkout', // Required
+                amount: 10.00, // Required
+                currency: 'USD', // Required, must match the currency passed in with loadPayPalSDK
 
-        }, function (clientErr, clientInstance) {
-          if (clientErr) {
-            console.error('Error creating client:', clientErr);
-            return;
-          }
+                intent: 'capture', // Must match the intent passed in with loadPayPalSDK
 
-          // Create a PayPal Checkout component.
-          braintree.paypalCheckout.create({
-            client: clientInstance,
-
-          }, function (paypalCheckoutErr, paypalCheckoutInstance) {
-            paypalCheckoutInstance.loadPayPalSDK({
-              currency: 'USD',
-              intent: 'capture'
-            }, function () {
-              paypal.Buttons({
-                // Controls which buttons are displayed
-                fundingSource: paypal.FUNDING.PAYPAL,
-
-                createOrder: function () {
-                  console.log('createOrder');
-                  return paypalCheckoutInstance.createPayment({
-                    flow: 'checkout', // Required
-                    amount: 10.00, // Required
-                    currency: 'USD', // Required, must match the currency passed in with loadPayPalSDK
-
-                    intent: 'capture', // Must match the intent passed in with loadPayPalSDK
-
-                    enableShippingAddress: true,
-                    shippingAddressEditable: false,
-                    shippingAddressOverride: {
-                      recipientName: 'Scruff McGruff',
-                      line1: '1234 Main St.',
-                      line2: 'Unit 1',
-                      city: 'Chicago',
-                      countryCode: 'US',
-                      postalCode: '60652',
-                      state: 'IL',
-                      phone: '123.456.7890'
-                    }
-                  });
-                },
-
-                onShippingChange: function (data, actions) {
-                  console.log('onShippingChange', { data, actions });
-
-                  return actions.resolve();
-                  // return actions.reject();
-                },
-
-                onApprove: function (data, actions) {
-                  console.log('onApprove', { data, actions });
-                  return paypalCheckoutInstance.tokenizePayment(data, async function (err, payload) {
-                    console.log({ payload });
-                    const { details, nonce } = payload;
-                    const {
-                      billingAddress,
-                      birthDate,
-                      countryCode,
-                      email,
-                      firstName,
-                      lastName,
-                      payerId,
-                      phone,
-                      phoneType,
-                      shippingAddress
-                    } = details;
-                    // Submit 'payload.nonce' to server
-                    console.log(`Payment nonce:`, nonce);
-
-                    try {
-                      const response = await fetch('/sale', {
-                        method: 'POST',
-                        headers: {
-                          'Accept': 'application/json',
-                          'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                          amount: '10.00', // Replace with the actual amount
-                          nonce,
-                          // deviceData: 'device-data-from-client' // Replace with the actual device data if available
-                        })
-                      });
-                      const data = await response.json();
-                      console.log(data);
-                    } catch (error) {
-                      console.error('Error:', error);
-                    }
-
-                  });
-                },
-
-                onCancel: function (data) {
-                  console.log('onCancel', { data });
-                  console.log('PayPal payment cancelled', JSON.stringify(data, 0, 2));
-                },
-
-                onError: function (err) {
-                  console.error('onError', err);
+                enableShippingAddress: true,
+                shippingAddressEditable: false,
+                shippingAddressOverride: {
+                  recipientName: 'Scruff McGruff',
+                  line1: '1234 Main St.',
+                  line2: 'Unit 1',
+                  city: 'Chicago',
+                  countryCode: 'US',
+                  postalCode: '60652',
+                  state: 'IL',
+                  phone: '123.456.7890'
                 }
-              }).render('#paypal-button').then(function () {
-                // The PayPal button will be rendered in an html element with the ID 'paypal-button'.
-                console.log('Button rendered');
               });
-            });
+            },
+
+            onShippingChange: function (data, actions) {
+              console.log('onShippingChange', { data, actions });
+
+              return actions.resolve();
+
+              // To reject shipping change:
+              // return actions.reject();
+            },
+
+            onApprove: function (data, actions) {
+              console.log('onApprove', { data, actions });
+              return paypalCheckoutInstance.tokenizePayment(data, async function (err, payload) {
+                console.log({ payload });
+                const { details, nonce } = payload;
+                const {
+                  billingAddress,
+                  birthDate,
+                  countryCode,
+                  email,
+                  firstName,
+                  lastName,
+                  payerId,
+                  phone,
+                  phoneType,
+                  shippingAddress
+                } = details;
+                // Submit 'payload.nonce' to server
+                console.log(`Payment nonce:`, nonce);
+
+                try {
+                  const response = await fetch('/sale', {
+                    method: 'POST',
+                    headers: {
+                      'Accept': 'application/json',
+                      'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                      amount: '10.00', // Replace with the actual amount
+                      nonce,
+                      // deviceData: 'device-data-from-client' // Replace with the actual device data if available
+                    })
+                  });
+                  const data = await response.text();
+                  console.log(data);
+                } catch (error) {
+                  console.error('Error:', error);
+                }
+
+              });
+            },
+
+            onCancel: function (data) {
+              console.log('onCancel', { data });
+              console.log('PayPal payment cancelled', JSON.stringify(data, 0, 2));
+            },
+
+            onError: function (err) {
+              console.error('onError', err);
+            }
+          }).render('#paypal-button').then(function () {
+            // The PayPal button will be rendered in an html element with the ID 'paypal-button'.
+            console.log('Button rendered');
           });
         });
-      } catch (error) {
-        console.error('Error initializing Braintree:', error);
-      }
+      }).catch(function (err) {
+        // Handle component creation error
+        alert(err.message);
+      });
     }
-
-
 
     initializeBraintree();
   </script>

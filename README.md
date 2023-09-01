@@ -43,6 +43,7 @@ Replace the Braintree credentials in the `.env` file with your own sandbox or pr
 ## TODO
 
 - [client] How to customize button? I see some documentation for the v2 SDK, but not v3.
+- [client] Venmo button and capture - different endpoints needed?
 - [server] How to query for transaction (if even needed)?
 - [server] How to cancel a settled transaction?
 - [server] How to refund a settled transaction?
