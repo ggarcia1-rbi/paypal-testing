@@ -60,28 +60,35 @@
                 flow: 'checkout', // Required
                 amount: 10.00, // Required
                 currency: 'USD', // Required, must match the currency passed in with loadPayPalSDK
-
                 intent: 'capture', // Must match the intent passed in with loadPayPalSDK
-
-                enableShippingAddress: true,
+                requestBillingAgreement: true, // required for checkout with vault flow
+                billingAgreementDetails: {
+                  description: 'Your payment will be processed with ...', // optional, displayed to customer
+                },
+                enableShippingAddress: false, // we will not allow user to specify shipping address within PayPal UI
                 shippingAddressEditable: false,
-                shippingAddressOverride: {
-                  recipientName: 'Scruff McGruff',
-                  line1: '1234 Main St.',
-                  line2: 'Unit 1',
-                  city: 'Chicago',
-                  countryCode: 'US',
-                  postalCode: '60652',
-                  state: 'IL',
-                  phone: '123.456.7890'
-                }
+                // shippingAddressOverride: {
+                //   recipientName: 'Scruff McGruff',
+                //   line1: '1234 Main St.',
+                //   line2: 'Unit 1',
+                //   city: 'Chicago',
+                //   countryCode: 'US',
+                //   postalCode: '60652',
+                //   state: 'IL',
+                //   phone: '123.456.7890'
+                // }
               });
             },
 
             onShippingChange: function (data, actions) {
               console.log('onShippingChange', { data, actions });
 
-              return actions.resolve();
+              return actions.reject();
+
+              // To accept shipping changes
+              // NOTE: may need to update order object
+              // https://developer.paypal.com/braintree/docs/guides/paypal/checkout-with-vault/javascript/v3/#invoking-the-checkout-with-vault-flow
+              // return actions.resolve();
 
               // To reject shipping change:
               // return actions.reject();

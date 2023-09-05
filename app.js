@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const braintree = require('braintree');
 const path = require('path');
+const fs = require('fs');
 
 // Initialize express
 const app = express();
@@ -50,6 +51,7 @@ app.post('/sale', (req, res) => {
     paymentMethodNonce: nonce,
     deviceData,
     options: {
+      storeInVaultOnSuccess: true,
       submitForSettlement: true
     }
   }, (err, result) => {
@@ -58,6 +60,7 @@ app.post('/sale', (req, res) => {
     }
     // See result.transaction for details
     console.log(JSON.stringify(result.transaction, null, 2));
+    fs.writeFileSync(`transaction-${result.transaction.id}.json`, JSON.stringify(result.transaction, null, 2));
     return res.sendStatus(200);
   });
 });
