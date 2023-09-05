@@ -41,14 +41,14 @@ app.get('/client_token', (req, res) => {
 
 // Settle transaction
 app.post('/sale', (req, res) => {
-  const { amount, nonce } = req.body;
+  const { amount, nonce, deviceData } = req.body;
   if (!(amount && nonce)) {
     return res.sendStatus(400);
   }
   gateway.transaction.sale({
     amount,
     paymentMethodNonce: nonce,
-    // deviceData,
+    deviceData,
     options: {
       submitForSettlement: true
     }

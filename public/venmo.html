@@ -26,7 +26,7 @@
 
 <body>
   <div class="container">
-    <button id="venmo-button" style="width:500px;">Pay with Venmo</button>
+    <button id="venmo-button" style="width:500px;padding:0px;"><img src="venmo.png" style="width:100px;" /></button>
   </div>
   <script type="text/javascript">
     async function initializeBraintree() {
@@ -39,36 +39,44 @@
       // Create a client.
       braintree.client.create({
         authorization
-      }).then(function (clientInstance) {
+      }).then(async function (clientInstance) {
+
         // Create a PayPal Checkout component.
-        return braintree.venmo.create({
-          client: clientInstance,
-          allowDesktop: true,
-          mobileWebFallBack: true,
-          allowDesktopWebLogin: true,
-          paymentMethodUsage: 'multi_use'
-        });
-      }).then(function (venmoInstance) {
+        return Promise.all([
+          braintree.venmo.create({
+            client: clientInstance,
+            allowDesktop: true,
+            mobileWebFallBack: true,
+            allowDesktopWebLogin: true,
+            paymentMethodUsage: 'single_use', // multi_use used for vaulting
+          }),
+          braintree.dataCollector.create({
+            client: clientInstance,
+            paypal: true
+          })
+        ]);
+      }).then(function ([venmoInstance, dataCollectorInstance]) {
         // Verify browser support before proceeding.
         if (!venmoInstance.isBrowserSupported()) {
-          console.log('Browser does not support Venmo');
-          return;
+          return alert('Browser does not support Venmo');
         }
 
-        displayVenmoButton(venmoInstance);
+        displayVenmoButton(venmoInstance, dataCollectorInstance);
 
         // Check if tokenization results already exist. This occurs when your
         // checkout page is relaunched in a new tab. This step can be omitted
         // if allowNewBrowserTab is false.
         if (venmoInstance.hasTokenizationResult()) {
-          venmoInstance.tokenize().then(handleVenmoSuccess).catch(handleVenmoError);
+          venmoInstance.tokenize().then(payload => {
+            return handleVenmoSuccess(payload, dataCollectorInstance);
+          }).catch(handleVenmoError);
         }
 
       }).catch(function (err) {
         // Handle component creation error
       });
 
-      function displayVenmoButton(venmoInstance) {
+      function displayVenmoButton(venmoInstance, dataCollectorInstance) {
         console.log('displaying venmo button');
         // Assumes that venmoButton is initially display: none.
         venmoButton.style.display = 'block';
@@ -78,17 +86,45 @@
 
           venmoInstance.tokenize().then(function (payload) {
             venmoButton.removeAttribute('disabled');
-            console.log({ payload });
+            handleVenmoSuccess(payload, dataCollectorInstance);
           });
         });
       }
 
       function handleVenmoError(err) {
-        alert('Venmo error: ' + err.message);
+        return alert('Venmo error: ' + err.message);
       }
 
-      function handleVenmoSuccess(payload) {
+      async function handleVenmoSuccess(payload, dataCollectorInstance) {
         console.log(`Venmo success`, { payload });
+        // Payment nonce used for sale
+        console.log('Got a payment method nonce:', payload.nonce);
+        // Display the Venmo username in your checkout UI.
+        console.log('Venmo user:', payload.details.username);
+        // Log device data (needed in sale request)
+        console.log('Device data', dataCollectorInstance.deviceData);
+
+        const { nonce } = payload;
+
+        try {
+          const response = await fetch('/sale', {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              amount: '10.00', // Replace with the actual amount; Where is sale amount specified?
+              nonce: payload.nonce,
+              deviceData: dataCollectorInstance.deviceData
+            })
+          });
+          const data = await response.text();
+          console.log(data);
+          alert('Payment successful');
+        } catch (error) {
+          console.error('Error:', error);
+        }
       }
     }
 
